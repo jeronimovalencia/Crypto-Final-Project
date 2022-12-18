@@ -358,7 +358,7 @@ function baby_step_giant_step_generalized(a,b,p,m)
         # Giant Steps
 
         L = length(BSlist)
-        Q1 = addition_q(BSlist[length(L)],BSlist[length(L)],a,b,p,m)
+        Q1 = addition_q(BSlist[L],BSlist[L],a,b,p,m)
         Q = addition_q(P,Q1,a,b,p,m)
         R = n_times_point_q(p+1,P,a,b,p,m)
         t = Integer(floor(2*sqrt(q) / (2*s+1)))    
