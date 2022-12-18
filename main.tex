@@ -1,0 +1,165 @@
+\documentclass[letter,11pt,reqno]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[utf8]{inputenc} 
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb,subcaption,graphicx,amsthm,enumitem,mathpazo,xcolor,tikz-cd, multicol,comment,lipsum,listing} 
+
+\usepackage[backend=bibtex,natbib=true]{biblatex}
+%\bibliographystyle{my-siam}
+\usepackage{xcolor}
+
+\addbibresource{references.bib}
+\graphicspath{{Figures/}}
+
+\usepackage{amsthm, multicol}
+
+\title{Computing $\#E(\mathbb{F}_q)$ using a baby-step-giant-step algorithm}
+\date{\today}
+\author{Jerónimo Valencia-Porras}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{corollary}{Corollary}[theorem]
+\newtheorem{lemma}[theorem]{Lemma}
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\theoremstyle{definition}
+\newtheorem{proposition}[theorem]{Proposition}
+\theoremstyle{definition}
+\newtheorem{example}[theorem]{Example}
+\theoremstyle{remark}
+\newtheorem*{remark}{Remark}
+\theoremstyle{definition}
+\newtheorem{question}{Question}
+\theoremstyle{definition}
+\newtheorem{conjecture}{Conjecture}
+
+\newcommand{\jeronimo}[1]{\textcolor{blue}{#1}}
+\newcommand{\Fp}{\mathbb{F}_p}
+\newcommand{\Fq}{\mathbb{F}_q}
+\newcommand{\modp}{\,(\text{mod}\, p)}
+\newcommand{\modq}{\,(\text{mod}\, q)}
+\newcommand*{\myfont}{\fontfamily{<cmss>}\selectfont}
+
+%Code listing for Julia
+\usepackage[T1]{fontenc}
+\usepackage{beramono}
+\usepackage{listings}
+
+%%
+%% Julia definition (c) 2014 Jubobs
+%%
+\lstdefinelanguage{Julia}%
+  {morekeywords={abstract,break,case,catch,const,continue,do,else,elseif,%
+      end,export,false,for,function,immutable,import,importall,if,in,%
+      macro,module,otherwise,quote,return,switch,true,try,type,typealias,%
+      using,while},%
+   sensitive=true,%
+   alsoother={$},%
+   morecomment=[l]\#,%
+   morecomment=[n]{\#=}{=\#},%
+   morestring=[s]{"}{"},%
+   morestring=[m]{'}{'},%
+}[keywords,comments,strings]%
+
+\lstset{%
+    language         = Julia,
+    basicstyle       = \ttfamily,
+    keywordstyle     = \bfseries\color{blue},
+    stringstyle      = \color{red},
+    commentstyle     = \color{teal},
+    showstringspaces = false,
+}
+
+
+\begin{document}
+\maketitle
+\vspace{-0.5cm}
+%\begin{abstract}
+%    \lipsum[1-1]
+%\end{abstract}
+
+\section{Introduction}
+Let $q=p^k$ be a power of a prime $p > 3$ where $k\geq 1$ and consider an elliptic curve 
+\begin{equation}\label{eq:curve}
+    E:\, y^2 = x^3+ax+b
+\end{equation}
+over $\Fq$. The set of all possible values of $x$ and $y$ in $\Fq$ satisfying the previous equation, adjoining a point at infinity $\infty$, is denoted by $E(\Fq)$. This set of points forms an abelian group using the cord and tangent method for addition and setting $\infty$ as the identity element. 
+
+\noindent In this work, the interest is to compute the order of the group $E(\Fq)$. Based on \cite{Schoof1995}, an implementation in Julia of a baby-step-giant-step algorithm to compute $\# E(\mathbb{F}_q)$ is provided. The algorithm is based on the following bound for $\# E(\Fq)$. For a proof, the reader can refer to \cite{silverman2009arithmetic}.
+
+\begin{theorem} [Hasse]\label{thm:Hasse}
+Let $p$ be a prime, $k\geq 1$ and $q=p^k$. For an elliptic curve $E$ over $\Fq$, $$\left | q+1 - \#E(\Fq) \right | < 2\sqrt{q}.$$
+\end{theorem}
+
+\noindent For the implementation of the algorithm it is important to compute square roots modulo $q$. This is done using Shanks-Tonelli's algorithm \cite{ezrabrown,1973-shanks} in the case $k=1$ and a generalization given by Tonelli \cite{tonelli1891} for $k>1$. Thus, the algorithm to compute $\# E(\Fp)$ is described first and a suitable generalization to compute $\# E(\Fq)$ is given using similar ideas.
+
+\section{Order of $E(\Fp)$}
+
+\subsection{Legendre symbols}
+
+The order of the group $E(\Fp)$ can be found using Legendre symbols as follows. For a pair $(x,y)$ to be in $E(\Fp)$, the number $x^3+ax+b \modp$ must be a square modulo $p$. Then, for any given $x\in\Fp$, it corresponds to at most $2$ points in $E(\Fp)$. More explicitly, if $\left( \frac{\cdot}{p} \right)$ denotes the Legendre symbol, then there are $1+\left( \frac{x^3+ax+b}{p}\right)$ points with $x$ coordinate in the curve. Since the point at infinity must be included, 
+\begin{equation}\label{eq:legendre}
+    \# E(\Fp) = 1 + \sum_{x\in\Fp}\left( 1+\left( \frac{x^3+ax+b}{p}\right) \right) = 1 + p + \sum_{x\in\Fp}\left( \frac{x^3+ax+b}{p}\right)
+\end{equation}
+
+\noindent This equation was used to verify the algorithm for small values of $p$. 
+
+\subsection{Shanks-Tonelli algorithm}
+First, lets review how to find square roots in $\Fp$. Let $t$ be an integer relatively prime to $p$. By Fermat's Little Theorem $t^{p-1} \equiv 1 \,(\text{mod}\, p)$, which implies $t^{(p-1)/2} \equiv \pm 1 \,(\text{mod}\, p)$. By Euler criterion, it can be assumed that $t^{(p-1)/2} \equiv 1 \,(\text{mod}\, p)$, since $n$ has no square root modulo $p$ otherwise. 
+
+\begin{enumerate}
+    \item Factor $p-1 = 2^{e}\cdot s$ with $e>0$ and $s$ odd. 
+    \item Find an integer $n$ such that $n$ is not a square modulo $p$. That is, an integer $n$ satisfying $n^{(p-1)/2} \equiv -1 \,(\text{mod}\, p)$.
+    \item Initialize the following variables:
+    \begin{itemize}
+        \item $x\equiv t^{(s+1)/2} \modp$
+        \item $b \equiv t^s \modp$
+        \item $g \equiv n^s \modp$
+        \item $r\equiv e \modp$
+    \end{itemize}
+    \item Find the smallest integer $m$ such that $b^{2^m}\equiv 1 \modp$.
+    \item If $m=0$, then $x$ is a square root of $t$ modulo $p$.
+    \item If $m>0$, update the variables as follows:
+    \begin{itemize}
+        \item $x \longleftarrow x\cdot g^{2^{r-m-1}}$
+        \item $b \longleftarrow b\cdot g^{2^{r-m}}$
+        \item $g \longleftarrow g^{2^{r-m}}$
+        \item $x \longleftarrow m$      
+    \end{itemize}
+    and go back to step 4.
+\end{enumerate}
+
+\noindent Lets make some comments about the algorithm. The integer in Step 4 exists since $b^{2^{r-1}} \equiv t^{s\cdot2^{r-1}} \equiv t^{(p-1)/2} \equiv 1 \modp$ and then the order of $b$ in $\mathbb{Z}/p\mathbb{Z}$ divides $2^{r-1}$. This value can be searched computing explicitly the value $b^{2^m} \modp$ for $m=2,3,\ldots,r-1$. Step 5 follows since $x^2 \equiv bt \modp$ and $m=0$ means $t\equiv 1 \modp$. The updated value of $x$ satisfies $x^2 \equiv bt \modp$ in the updates variables, so that when repeating the algorithm, the value $m=0$ is still aimed. Finally, this algorithm finishes since $b$ has order $2^m$ and the updated value of $b$ has order at most $2^{m-1}$. Indeed $$(b\cdot g^{2^{r-m}})^{2^{m-1}} \equiv b^{2^{m-1}}g^{2^{r-1}} \equiv (-1)\cdot(-1) \equiv 1\modp$$ where the last congruence follows from minimality of $m$ and since $n$ is not a square mod p. Thus, the order of the updated value of $b$ divides $2^{m-1}$, thus it is at most this value. This shows that $m$ is eventually $0$ and the algorithm ends. 
+
+\subsection{Baby-step-giant-step algorithm for $\# E(\Fp)$}
+Now, the algorithm described in \cite{Schoof1995} is summarized. The idea is to pick a random point $P$ in the elliptic curve and find an integer number $\alpha$ such that $\alpha$ is in the interval defined by Hasse's theorem and $\alpha P = \infty$. This number is not always equal to the order of the group. Indeed, if there are two different numbers $\alpha$ and $\alpha'$ in the interval such that $\alpha P = \alpha' P = 0$, then picking this point does not give the correct answer. As mentioned in \cite{Schoof1995}, this rarely happens in practices and if it does, it suffices to repeat the algorithm with a second random point. Thus, if the choice of $P$ is sufficiently random, this gives us the order of the elliptic curve group. 
+\newpage
+
+The algorithm has the following steps:
+\begin{enumerate}
+    \item Pick a random point $P\in E(\Fp)$. To do so, select a random value of $x\in\Fp$, compute $x^3+ax+b \modp$ and compute the square root of this number using Shanks-Tonelli algorithm. If such square root is $y$, the pair $(x,y)$ satisfies the equation of the curve. 
+    \item Now make the baby steps: let $d \approx \sqrt[4]{p}$ and make the list $BSt = \{ P,2P,\ldots,dP \}$ by successive addition of the point $P$ to itself. Using the inversion map in the elliptic curve group, the list can be updated to $BSt = \{ \infty,\pm P,\pm 2P,\ldots,\pm dP \}$. 
+    \item Compute $Q = (2d+1)P$ and $R = (p+1)P$.
+    \item Now make the giant steps: let $t \approx 2\sqrt{p}/(2d+1)$ and $GSt = \{ R,R\pm Q, R\pm 2Q, \ldots,R\pm tQ \}$. 
+    \item Find the integers $i\in{0,\pm1,\pm2,\ldots,\pm t}$ and $i\in{0,\pm1,\pm2,\ldots,\pm s}$ such that $R+iQ = jP$. 
+    \item The integer $\alpha = p+1+(2d+1)i-j$ satisfies $\alpha P = \infty$. 
+\end{enumerate}
+
+\section{Order of $E(\Fq)$}
+
+The algorithm described in the previous section can be generalized for $k>1$. The main difference is the way in which the random point in Step 1 is computed. To compute the new square root modulo $q$, Tonelli's generalization can be used \cite{tonelli1891}. In this case, pick a random $x\in\Fq$ such that $y_s = x^3+ax+b$ is a square modulo $p$. This is easily checked using Euler's criterion. Let $\rho$ be a root of $y_s$ modulo $p$. Then, $y = \rho^{p^{k-1}}y_s^{(p^k-2p^{k-1}+1)/2}$ satisfies $y^2 \equiv y_s \modq$ and therefore gives the coordinates $(x,y)$ of a point $P\in E(\Fq)$. Indeed, $$y^2 \equiv \left( \rho^{p^{k-1}}y_s^{(p^k-2p^{k-1}+1)/2} \right)^2 \equiv (\rho^2)^{p^{k-1}}y_s^{p^k-2p^{k-1}+1} \equiv y_s^{p^{k}-p^{k-1}+1} \equiv y_s \;\modq$$ since Euler's theorem says that $y_s^{\varphi(q)} \equiv 1 \modq$ where $\varphi$ is Euler's totient function, that evaluates to $\varphi(q) = \varphi(p^k) = p^k-p^{k-1}.$ With this reformulation of Step 1 in the algorithm and replacing $p$ by $q$ in Steps 2 and 4, the same strategy described in the previous section gives an algorithm that computes $\# E(\Fq)$. As before, picking the initial element of the curve being sufficiently random is important for the algorithm to work properly.
+
+\section{Implementation in Julia}
+
+As mentioned, the case for $k=1$ was treated first. Using Equation \ref{eq:legendre} and the fact that if $p$ is congruent to $3$ modulo $4$ and $b=0$ in (\ref{eq:curve}), then $\#E(\Fp) = p+1$, the algorithm was tested with different values of $p$. The methods for Section 2 are in the beginning of the file {\myfont codeBSGS.jl}. For the generalization in Section 3, the pertinent changes for the methods are the final part of the same file. 
+\newpage
+
+%\lstinputlisting[language=Julia]{code1.jl}
+
+
+
+%\lstinputlisting[language=Julia]{code2.jl}
+
+\printbibliography
+
+\end{document}
