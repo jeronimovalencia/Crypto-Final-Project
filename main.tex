@@ -135,7 +135,7 @@ First, lets review how to find square roots in $\Fp$. Let $t$ be an integer rela
 Now, the algorithm described in \cite{Schoof1995} is summarized. The idea is to pick a random point $P$ in the elliptic curve and find an integer number $\alpha$ such that $\alpha$ is in the interval defined by Hasse's theorem and $\alpha P = \infty$. This number is not always equal to the order of the group. Indeed, if there are two different numbers $\alpha$ and $\alpha'$ in the interval such that $\alpha P = \alpha' P = 0$, then picking this point does not give the correct answer. As mentioned in \cite{Schoof1995}, this rarely happens in practices and if it does, it suffices to repeat the algorithm with a second random point. Thus, if the choice of $P$ is sufficiently random, this gives us the order of the elliptic curve group. 
 \newpage
 
-The algorithm has the following steps:
+\noindent The algorithm has the following steps:
 \begin{enumerate}
     \item Pick a random point $P\in E(\Fp)$. To do so, select a random value of $x\in\Fp$, compute $x^3+ax+b \modp$ and compute the square root of this number using Shanks-Tonelli algorithm. If such square root is $y$, the pair $(x,y)$ satisfies the equation of the curve. 
     \item Now make the baby steps: let $d \approx \sqrt[4]{p}$ and make the list $BSt = \{ P,2P,\ldots,dP \}$ by successive addition of the point $P$ to itself. Using the inversion map in the elliptic curve group, the list can be updated to $BSt = \{ \infty,\pm P,\pm 2P,\ldots,\pm dP \}$. 
